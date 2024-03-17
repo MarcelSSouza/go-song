@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"io"
 	"os/exec"
 	"time"
 	"strings"
@@ -79,10 +78,9 @@ func main() {
 		fmt.Println("Downloading music from youtube...")
 		youtubeURL := os.Args[1]
 		println(youtubeURL)
-		//get only ID form https://www.youtube.com/watch?v=69RdQFDuYPI
-		// 69RdQFDuYPI is the ID
-		videoID := strings.Split(youtubeURL,"=")[1]
 
+		videoID := strings.Split(youtubeURL,"=")[1]
+		println(videoID)
 		client := youtube.Client{}
 
 		video, err := client.GetVideo(videoID)
@@ -91,22 +89,24 @@ func main() {
 		}
 	
 		formats := video.Formats.WithAudioChannels() // only get videos with audio
-		stream, _, err := client.GetStream(video, &formats[0])
+		for _, format := range formats {
+			fmt.Println(format)
+		}
+		stream, _, err := client.GetStream(video, &formats[3])
 		if err != nil {
 			panic(err)
 		}
 		defer stream.Close()
 	
-		file, err := os.Create("video.mp4")
+		outputFileName := "./musics/" + videoID + ".mp3"
+		cmd := exec.Command("ffmpeg", "-i", "pipe:0", "-vn", "-acodec", "libmp3lame", "-q:a", "0", outputFileName)
+		cmd.Stdin = stream
+		err = cmd.Run()
 		if err != nil {
 			panic(err)
 		}
-		defer file.Close()
 	
-		_, err = io.Copy(file, stream)
-		if err != nil {
-			panic(err)
-		}
+		fmt.Println("Conversion completed. Saved as", outputFileName)
 	}
 }
 
