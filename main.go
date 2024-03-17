@@ -4,12 +4,15 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"io"
 	"os/exec"
 	"time"
+	"strings"
 
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
+	"github.com/kkdai/youtube/v2"
 )
 
 func directory(dirname string) {
@@ -32,14 +35,6 @@ func directory(dirname string) {
 	}
 }
 
-func downloadAudio(url string) error {
-    cmd := exec.Command("youtube-dl", "-x", "--audio-format", "mp3", "-o", " ./musics/"+url+".mp3" , url)
-    err := cmd.Run()
-    if err != nil {
-        return err
-    }
-    return nil
-}
 
 func playMusic(filename string) {
 	f, err := os.Open(filename)
@@ -84,13 +79,33 @@ func main() {
 		fmt.Println("Downloading music from youtube...")
 		youtubeURL := os.Args[1]
 		println(youtubeURL)
+		//get only ID form https://www.youtube.com/watch?v=69RdQFDuYPI
+		// 69RdQFDuYPI is the ID
+		videoID := strings.Split(youtubeURL,"=")[1]
 
-		if youtubeURL != "" {
-			err := downloadAudio(youtubeURL)
-			if err != nil {
-				panic(err)
-			}
-			println("Audio downloaded successfully!")
+		client := youtube.Client{}
+
+		video, err := client.GetVideo(videoID)
+		if err != nil {
+			panic(err)
+		}
+	
+		formats := video.Formats.WithAudioChannels() // only get videos with audio
+		stream, _, err := client.GetStream(video, &formats[0])
+		if err != nil {
+			panic(err)
+		}
+		defer stream.Close()
+	
+		file, err := os.Create("video.mp4")
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+	
+		_, err = io.Copy(file, stream)
+		if err != nil {
+			panic(err)
 		}
 	}
 }
